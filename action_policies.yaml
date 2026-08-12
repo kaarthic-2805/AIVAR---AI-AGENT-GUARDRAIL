@@ -1,0 +1,63 @@
+# Action Policy Ruleset for Agent Tools
+# Outcomes supported: block, require_hitl, log_and_allow
+
+policies:
+  - id: block_bulk_delete
+    name: Block Bulk Database Deletes
+    action: delete_records
+    condition:
+      field: record_count
+      operator: ">"
+      value: 100
+    outcome: block
+    description: "Block any database delete operation where record count exceeds 100."
+
+  - id: allow_small_delete
+    name: Allow Small Database Deletes
+    action: delete_records
+    condition:
+      field: record_count
+      operator: "<="
+      value: 100
+    outcome: log_and_allow
+    description: "Log and allow database deletes with 100 or fewer records."
+
+  - id: hitl_external_email
+    name: Require HITL for External Domain Emails
+    action: send_email
+    condition:
+      field: recipient
+      operator: "not_ends_with"
+      value: "@realestate.com"
+    outcome: require_hitl
+    description: "Require human-in-the-loop approval for any email sent to an external domain."
+
+  - id: allow_internal_email
+    name: Allow Internal Domain Emails
+    action: send_email
+    condition:
+      field: recipient
+      operator: "ends_with"
+      value: "@realestate.com"
+    outcome: log_and_allow
+    description: "Log and allow emails sent to internal domain (@realestate.com)."
+
+  - id: log_confidential_access
+    name: Log Confidential Path Access
+    action: read_path
+    condition:
+      field: path
+      operator: "contains"
+      value: "confidential"
+    outcome: log_and_allow
+    description: "Log audit record and allow any read of a path containing the word confidential."
+
+  - id: allow_standard_read
+    name: Allow Standard File Read
+    action: read_path
+    condition:
+      field: path
+      operator: "not_contains"
+      value: "confidential"
+    outcome: log_and_allow
+    description: "Log and allow access to standard document paths."
