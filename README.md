@@ -1,3 +1,5 @@
+NOTE : GROQ API -> Limited usage upto 4 to 5 attempts
+
 # 🛡️ EstateGuard AI
 
 ### Action-Governed Multi-Agent AI Platform
