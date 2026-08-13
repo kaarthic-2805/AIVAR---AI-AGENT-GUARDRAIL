@@ -46,13 +46,22 @@ def _subprocess_env(**updates: Optional[str]) -> Dict[str, str]:
 # LLM
 # =========================================================
 
+raw_groq_keys = os.getenv("GROQ_API_KEY", "")
+groq_keys = [k.strip() for k in raw_groq_keys.split(",") if k.strip()]
+if not groq_keys:
+    raise ValueError("GROQ_API_KEY is missing in project .env file.")
+
 primary_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 fallback_model = os.getenv("GROQ_FALLBACK_MODEL", "llama-3.1-8b-instant")
 
-primary_llm = ChatGroq(model=primary_model, api_key=_require_env("GROQ_API_KEY", GROQ_API_KEY))
-fallback_llm = ChatGroq(model=fallback_model, api_key=_require_env("GROQ_API_KEY", GROQ_API_KEY))
+llm_chain = []
+for k in groq_keys:
+    llm_chain.append(ChatGroq(model=primary_model, api_key=k))
+    llm_chain.append(ChatGroq(model=fallback_model, api_key=k))
 
-llm = primary_llm.with_fallbacks([fallback_llm])
+primary_llm = llm_chain[0]
+fallback_llms = llm_chain[1:]
+llm = primary_llm.with_fallbacks(fallback_llms) if fallback_llms else primary_llm
 
 
 # =========================================================
