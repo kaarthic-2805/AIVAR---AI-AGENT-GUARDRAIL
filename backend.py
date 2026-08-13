@@ -40,10 +40,13 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY is missing. Please add it to your .env file.")
 
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    api_key=GROQ_API_KEY,
-)
+primary_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+fallback_model = os.getenv("GROQ_FALLBACK_MODEL", "llama-3.1-8b-instant")
+
+primary_llm = ChatGroq(model=primary_model, api_key=GROQ_API_KEY)
+fallback_llm = ChatGroq(model=fallback_model, api_key=GROQ_API_KEY)
+
+llm = primary_llm.with_fallbacks([fallback_llm])
 
 
 # =========================
@@ -134,14 +137,21 @@ def supervisor_agent(state: RealEstateState):
     llm_calls = state.get("llm_calls", 0)
 
     guardrail_prompt = f"""
-Determine whether the following request belongs to Real Estate (property search, buying, renting, valuation, neighborhood research, property record deletion, sending emails, or document inspection).
+You are evaluating whether a user request belongs to EstateGuard AI (a Real Estate multi-agent system).
 
-Block clearly unrelated requests (e.g. general travel, medical advice, illegal weapons, malicious hacking).
+VALID REQUESTS (Set allowed = true):
+- Searching for real estate properties, listings, estates, homes, villas, or apartments.
+- Real estate valuation, price estimation, market trends, ROI, or neighborhood amenities.
+- Sending emails containing real estate proposals, property showcases, or listing reports.
+- Managing property database records or reading property documents.
+
+INVALID REQUESTS (Set allowed = false only if completely unrelated):
+- Topics totally unrelated to real estate (e.g., medical/health advice, flight/hotel bookings, sports, cooking, illegal content).
 
 Return strict JSON only:
 {{
   "allowed": true,
-  "reason": ""
+  "reason": "Brief explanation"
 }}
 
 User request:
@@ -350,11 +360,14 @@ def action_dispatch_agent(state: RealEstateState):
 
     # Scenario 2: Send Email
     if "email" in query or "send proposal" in query or "mail" in query:
-        recipient = "client@externaldomain.com" if "external" in query or "@" in query else "team@realestate.com"
-        if "externaldomain.com" in query:
-            recipient = "buyer@externaldomain.com"
-        elif "gmail.com" in query:
-            recipient = "buyer@gmail.com"
+        import re
+        emails_found = re.findall(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", state.get("user_query", ""))
+        if emails_found:
+            recipient = emails_found[0]
+        elif "external" in query:
+            recipient = "client@externaldomain.com"
+        else:
+            recipient = "team@realestate.com"
 
         res = execute_send_email_tool(
             recipient=recipient,

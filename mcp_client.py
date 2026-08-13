@@ -46,10 +46,13 @@ def _subprocess_env(**updates: Optional[str]) -> Dict[str, str]:
 # LLM
 # =========================================================
 
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    api_key=_require_env("GROQ_API_KEY", GROQ_API_KEY),
-)
+primary_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+fallback_model = os.getenv("GROQ_FALLBACK_MODEL", "llama-3.1-8b-instant")
+
+primary_llm = ChatGroq(model=primary_model, api_key=_require_env("GROQ_API_KEY", GROQ_API_KEY))
+fallback_llm = ChatGroq(model=fallback_model, api_key=_require_env("GROQ_API_KEY", GROQ_API_KEY))
+
+llm = primary_llm.with_fallbacks([fallback_llm])
 
 
 # =========================================================
